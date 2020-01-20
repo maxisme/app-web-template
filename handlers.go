@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -18,27 +17,25 @@ type Page struct {
 	Content string
 }
 
-type WebHandlerData struct {
-	Project     string
-	KeyWords    string
+type Sparkle struct {
 	Description string
-	Recaptcha   string
+	Version     string `validate:"nonzero"`
+}
+
+type ProjectData struct {
+	Project     string  `validate:"nonzero"`
+	KeyWords    string  `validate:"nonzero"`
+	Description string  `validate:"nonzero"`
+	Recaptcha   string  `validate:"nonzero"`
+	Host        string  `validate:"nonzero"`
+	DmgPath     string  `validate:"nonzero"`
+	Sparkle     Sparkle `validate:"nonzero"`
 
 	Pages []Page
-
-	Year int
+	Year  int
 }
 
-func Getenv(key string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		panic("environment variable not set: " + key)
-		return ""
-	}
-	return v
-}
-
-func FilenameWithoutExtension(fn string) string {
+func filenameWithoutExtension(fn string) string {
 	return strings.TrimSuffix(path.Base(fn), path.Ext(fn))
 }
 
@@ -60,34 +57,27 @@ func renderDirectory(pattern string) []Page {
 			log.Fatal(err.Error())
 		}
 		pages = append(pages, Page{
-			Name:    FilenameWithoutExtension(file),
+			Name:    filenameWithoutExtension(file),
 			Content: tpl.String(),
 		})
 	}
 	return pages
 }
 
-func WebHandler(w http.ResponseWriter, r *http.Request) {
+func (p *ProjectData) WebHandler(w http.ResponseWriter, r *http.Request) {
 	tmplPath := "index.html"
 	tmpl := template.Must(template.ParseFiles(tmplPath))
 
 	// fetch all templates in template directory
-	pages := renderDirectory("templates/*.html")
+	p.Pages = renderDirectory("templates/*.html")
+	p.Year = time.Now().Year()
 
-	if err := tmpl.Execute(w, WebHandlerData{
-		Project:     Getenv("project"),
-		KeyWords:    Getenv("meta-keywords"),
-		Description: Getenv("description"),
-		Recaptcha:   Getenv("recaptcha-pub"),
-
-		Pages: pages,
-		Year:  time.Now().Year(),
-	}); err != nil {
+	if err := tmpl.Execute(w, p); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func SiteMapHandler(w http.ResponseWriter, r *http.Request) {
+func (p *ProjectData) SiteMapHandler(w http.ResponseWriter, r *http.Request) {
 	xml := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 	<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url>
@@ -96,36 +86,36 @@ func SiteMapHandler(w http.ResponseWriter, r *http.Request) {
 	  <changefreq>monthly</changefreq>
 	</url>
 	</urlset>
-	`, Getenv("host"))
+	`, p.Host)
 
 	if _, err := w.Write([]byte(xml)); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func VersionHandler(w http.ResponseWriter, r *http.Request) {
+func (p *ProjectData) VersionHandler(w http.ResponseWriter, r *http.Request) {
 	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
-<rss version="1.1" xmlns:sparkle="https://%[1]s/xml-namespaces/sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
-  <channel>
-    <item>
-		<title>Version %[2]s</title>
-		<description><![CDATA[
-			%[3]s
-		]]>
-		</description>
-		<sparkle:version>%[2]s</sparkle:version>
-		<pubDate>'.date ("r", filemtime($file)).'</pubDate>
-		<enclosure url="https://%[1]s/download" sparkle:version="%[2]s"/>
-	</item>
-  </channel>
-</rss>
-	`, Getenv("host"), Getenv("version"), Getenv("sparkle-description"))
+	<rss version="1.1" xmlns:sparkle="https://%[1]s/xml-namespaces/sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
+	  <channel>
+		<item>
+			<title>Version %[2]s</title>
+			<description><![CDATA[
+				%[3]s
+			]]>
+			</description>
+			<sparkle:version>%[2]s</sparkle:version>
+			<pubDate>'.date ("r", filemtime($file)).'</pubDate>
+			<enclosure url="https://%[1]s/download" sparkle:version="%[2]s"/>
+		</item>
+	  </channel>
+	</rss>
+	`, p.Host, p.Sparkle.Version, p.Sparkle.Description)
 
 	if _, err := w.Write([]byte(xml)); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func DownloadHandler(w http.ResponseWriter, r *http.Request) {
-	r.Header.Set("Location", 	Getenv("dmg-path"))
+func (p *ProjectData) DownloadHandler(w http.ResponseWriter, r *http.Request) {
+	r.Header.Set("Location", p.DmgPath)
 }
