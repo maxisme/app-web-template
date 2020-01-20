@@ -1,0 +1,4 @@
+github.com/TV4/graceful v0.3.4 h1:Rp9PUwTMIW8m3rsEMkiq9JM6+ldBZIfLXn+hYTjenQs=
+github.com/TV4/graceful v0.3.4/go.mod h1:FCdf8hfXvxOSAQy0C0dBTCSCuMgowS++HzwYL7TIjf4=
+github.com/gorilla/mux v1.7.3 h1:gnP5JzjVOuiZD07fKKToCAOjS0yOpj/qPETTXCCS6hw=
+github.com/gorilla/mux v1.7.3/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
