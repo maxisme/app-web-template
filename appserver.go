@@ -16,6 +16,13 @@ import (
 	"time"
 )
 
+var requiredPaths = [4]string{
+	"images/og_logo.png",
+	"images/icon.ico",
+	"images/logo.png",
+	"templates/",
+}
+
 type page struct {
 	Name    string
 	Content string
@@ -33,11 +40,11 @@ type Recaptcha struct {
 
 type ProjectData struct {
 	Project     string    `validate:"nonzero"`
+	Host        string    `validate:"nonzero"`
+	DmgPath     string    `validate:"nonzero"`
 	KeyWords    string    `validate:"nonzero"`
 	Description string    `validate:"nonzero"`
 	Recaptcha   Recaptcha `validate:"nonzero"`
-	Host        string    `validate:"nonzero"`
-	DmgPath     string    `validate:"nonzero"`
 	Sparkle     Sparkle   `validate:"nonzero"`
 
 	pages []page
@@ -135,14 +142,14 @@ func Start(p ProjectData) {
 		_ = fmt.Errorf(err.Error())
 		return
 	}
-	if _, err := os.Stat("/images"); os.IsNotExist(err) {
-		_ = fmt.Errorf("no /images directory")
-		return
+
+	for _, requiredPath := range requiredPaths {
+		if _, err := os.Stat(requiredPath); os.IsNotExist(err) {
+			_ = fmt.Errorf("no dmg at path")
+			return
+		}
 	}
-	if _, err := os.Stat("/templates"); os.IsNotExist(err) {
-		_ = fmt.Errorf("no /templates directory")
-		return
-	}
+
 	if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) {
 		_ = fmt.Errorf("no dmg at path")
 		return
