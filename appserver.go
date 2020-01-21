@@ -21,19 +21,24 @@ type page struct {
 	Content string
 }
 
-type sparkle struct {
+type Sparkle struct {
 	Description string
 	Version     string `validate:"nonzero"`
 }
 
+type Recaptcha struct {
+	Pub  string `validate:"nonzero"`
+	Priv string `validate:"nonzero"`
+}
+
 type ProjectData struct {
-	Project     string  `validate:"nonzero"`
-	KeyWords    string  `validate:"nonzero"`
-	Description string  `validate:"nonzero"`
-	Recaptcha   string  `validate:"nonzero"`
-	Host        string  `validate:"nonzero"`
-	DmgPath     string  `validate:"nonzero"`
-	Sparkle     sparkle `validate:"nonzero"`
+	Project     string    `validate:"nonzero"`
+	KeyWords    string    `validate:"nonzero"`
+	Description string    `validate:"nonzero"`
+	Recaptcha   Recaptcha `validate:"nonzero"`
+	Host        string    `validate:"nonzero"`
+	DmgPath     string    `validate:"nonzero"`
+	Sparkle     Sparkle   `validate:"nonzero"`
 
 	pages []page
 	year  int
@@ -99,7 +104,7 @@ func (p *ProjectData) siteMapHandler(w http.ResponseWriter, r *http.Request) {
 
 func (p *ProjectData) versionHandler(w http.ResponseWriter, r *http.Request) {
 	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
-	<rss version="1.1" xmlns:sparkle="https://%[1]s/xml-namespaces/sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
+	<rss version="1.1" xmlns:Sparkle="https://%[1]s/xml-namespaces/Sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
 	  <channel>
 		<item>
 			<title>Version %[2]s</title>
@@ -107,9 +112,9 @@ func (p *ProjectData) versionHandler(w http.ResponseWriter, r *http.Request) {
 				%[3]s
 			]]>
 			</description>
-			<sparkle:version>%[2]s</sparkle:version>
+			<Sparkle:version>%[2]s</Sparkle:version>
 			<pubDate>'.date ("r", filemtime($file)).'</pubDate>
-			<enclosure url="https://%[1]s/download" sparkle:version="%[2]s"/>
+			<enclosure url="https://%[1]s/download" Sparkle:version="%[2]s"/>
 		</item>
 	  </channel>
 	</rss>
