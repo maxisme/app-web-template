@@ -2,6 +2,7 @@ package appserver
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/TV4/graceful"
 	"github.com/gorilla/mux"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -23,9 +25,14 @@ var requiredPaths = [4]string{
 	"templates/",
 }
 
+var (
+	_, b, _, _ = runtime.Caller(0)
+	basepath   = filepath.Dir(b)
+)
+
 type page struct {
 	Name    string
-	Content string
+	Content template.HTML
 }
 
 type Sparkle struct {
@@ -38,17 +45,20 @@ type Recaptcha struct {
 	Priv string `validate:"nonzero"`
 }
 
-type ProjectData struct {
-	Project     string    `validate:"nonzero"`
+type ProjectConfig struct {
+	Name        string    `validate:"nonzero"`
 	Host        string    `validate:"nonzero"`
 	DmgPath     string    `validate:"nonzero"`
 	KeyWords    string    `validate:"nonzero"`
 	Description string    `validate:"nonzero"`
 	Recaptcha   Recaptcha `validate:"nonzero"`
 	Sparkle     Sparkle   `validate:"nonzero"`
+}
 
-	pages []page
-	year  int
+type IndexData struct {
+	Project *ProjectConfig
+	Pages   []page
+	Year    int
 }
 
 func filenameWithoutExtension(fn string) string {
@@ -74,26 +84,26 @@ func renderDirectory(pattern string) []page {
 		}
 		pages = append(pages, page{
 			Name:    filenameWithoutExtension(file),
-			Content: tpl.String(),
+			Content: template.HTML(tpl.String()),
 		})
 	}
 	return pages
 }
 
-func (p *ProjectData) webHandler(w http.ResponseWriter, r *http.Request) {
-	tmplPath := "index.html"
+func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
+	tmplPath := basepath + "/index.html"
 	tmpl := template.Must(template.ParseFiles(tmplPath))
 
-	// fetch all templates in template directory
-	p.pages = renderDirectory("templates/*.html")
-	p.year = time.Now().Year()
-
-	if err := tmpl.Execute(w, p); err != nil {
+	if err := tmpl.Execute(w, IndexData{
+		Project: p,
+		Pages:   renderDirectory("templates/*.html"),
+		Year:    time.Now().Year(),
+	}); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-func (p *ProjectData) siteMapHandler(w http.ResponseWriter, r *http.Request) {
+func (p *ProjectConfig) siteMapHandler(w http.ResponseWriter, r *http.Request) {
 	xml := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 	<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url>
@@ -109,7 +119,7 @@ func (p *ProjectData) siteMapHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (p *ProjectData) versionHandler(w http.ResponseWriter, r *http.Request) {
+func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
 	<rss version="1.1" xmlns:Sparkle="https://%[1]s/xml-namespaces/Sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
 	  <channel>
@@ -132,27 +142,24 @@ func (p *ProjectData) versionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (p *ProjectData) downloadHandler(w http.ResponseWriter, r *http.Request) {
+func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) {
 	r.Header.Set("Location", p.DmgPath)
 }
 
-func Start(p ProjectData) {
+func Start(p ProjectConfig) error {
 	// validate requirements to start server
 	if err := validator.Validate(p); err != nil {
-		_ = fmt.Errorf(err.Error())
-		return
+		return err
 	}
 
 	for _, requiredPath := range requiredPaths {
 		if _, err := os.Stat(requiredPath); os.IsNotExist(err) {
-			_ = fmt.Errorf("no dmg at path")
-			return
+			return errors.New(requiredPath + " required")
 		}
 	}
 
 	if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) {
-		_ = fmt.Errorf("no dmg at path")
-		return
+		return errors.New(p.DmgPath + "doesn't exist")
 	}
 
 	m := mux.NewRouter()
@@ -160,7 +167,8 @@ func Start(p ProjectData) {
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
 	m.HandleFunc("/download", p.downloadHandler)
-	m.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
-	m.PathPrefix("/").Handler(http.FileServer(http.Dir("./images/")))
+	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
+	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
 	graceful.ListenAndServe(&http.Server{Addr: ":8080", Handler: m})
+	return nil
 }

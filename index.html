@@ -1,10 +1,10 @@
 <head>
     <!-- Info META -->
-    <title>{{.Project}}</title>
-    <meta property="og:title" content="{{.Project}}"/>
-    <meta name="keywords" content="{{.KeyWords}}">
-    <meta name="description" content="{{.Description}}">
-    <meta property="og:description" content="{{.Description}}"/>
+    <title>{{.Project.Name}}</title>
+    <meta property="og:title" content="{{.Project.Name}}"/>
+    <meta name="keywords" content="{{.Project.KeyWords}}">
+    <meta name="description" content="{{.Project.Description}}">
+    <meta property="og:description" content="{{.Project.Description}}"/>
     <meta property="og:image" content="/images/og_logo.png"/>
     <link rel="shortcut icon" href="/images/icon.ico">
 
@@ -26,23 +26,23 @@
     <script src="/js/all.js"></script>
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" type="text/css" href="css/style.min.css"/>
+    <link rel="stylesheet" type="text/css" href="/css/style.min.css"/>
 
     <!-- Custom JS -->
-    <script src="js/script.js"></script>
+    <script src="/js/script.js"></script>
 </head>
 <body>
 <page id="welcome" class="welcome">
     <div class="valign-wrapper">
         <div align="center" class="valign">
             <p>
-                <img class="logo" src="images/logo.png">
+                <img class="logo" src="/images/logo.png">
             </p>
-            <h1>{{.Project}}</h1>
-            <div class="info">{{.Description}}</div>
+            <h1>{{.Project.Name}}</h1>
+            <div class="info">{{.Project.Description}}</div>
             <a href="download" class="download">DOWNLOAD<i class="fab fa-apple"></i></a>
             <p class="nav">
-                {{ range .pages }}
+                {{ range .Pages }}
                     <a href="#{{.Name}}}">{{.Name}}</a>
                 {{end}}
                 <a href="#contact">Contact</a>
@@ -52,7 +52,7 @@
 </page>
 
 <!-- pages -->
-{{range .pages}}
+{{range .Pages}}
     <page id='{{.Name}}'>
         <div align='center'><h2>{{.Name}}</h2></div>
         {{.Content}}
@@ -93,7 +93,7 @@
         <input id="submit" type="submit" style="visibility: hidden" disabled="disabled">
     </form>
     <div align="center" class="sub">Designed, maintained and built by <a href="https://max.me.uk">Maximilian
-            Mitchell</a><br>© {{ .year }}</div>
+            Mitchell</a><br>© {{ .Year }}</div>
 
     <!-- recaptcha import -->
     <script>
@@ -105,7 +105,7 @@
 
         var onloadCallback = function () {
             grecaptcha.render('captcha', {
-                'sitekey': "{{ .Recaptcha }}",
+                'sitekey': "{{ .Project.Recaptcha.Pub }}",
                 'callback': correctCaptcha
             });
         };
