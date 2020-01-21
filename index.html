@@ -42,7 +42,7 @@
             <div class="info">{{.Description}}</div>
             <a href="download" class="download">DOWNLOAD<i class="fab fa-apple"></i></a>
             <p class="nav">
-                {{ range .Pages }}
+                {{ range .pages }}
                     <a href="#{{.Name}}}">{{.Name}}</a>
                 {{end}}
                 <a href="#contact">Contact</a>
@@ -52,7 +52,7 @@
 </page>
 
 <!-- pages -->
-{{range .Pages}}
+{{range .pages}}
     <page id='{{.Name}}'>
         <div align='center'><h2>{{.Name}}</h2></div>
         {{.Content}}
@@ -93,7 +93,7 @@
         <input id="submit" type="submit" style="visibility: hidden" disabled="disabled">
     </form>
     <div align="center" class="sub">Designed, maintained and built by <a href="https://max.me.uk">Maximilian
-            Mitchell</a><br>© {{ .Year }}</div>
+            Mitchell</a><br>© {{ .year }}</div>
 
     <!-- recaptcha import -->
     <script>

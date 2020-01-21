@@ -35,8 +35,8 @@ type ProjectData struct {
 	DmgPath     string  `validate:"nonzero"`
 	Sparkle     sparkle `validate:"nonzero"`
 
-	Pages []page
-	Year  int
+	pages []page
+	year  int
 }
 
 func filenameWithoutExtension(fn string) string {
@@ -73,8 +73,8 @@ func (p *ProjectData) webHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.ParseFiles(tmplPath))
 
 	// fetch all templates in template directory
-	p.Pages = renderDirectory("templates/*.html")
-	p.Year = time.Now().Year()
+	p.pages = renderDirectory("templates/*.html")
+	p.year = time.Now().Year()
 
 	if err := tmpl.Execute(w, p); err != nil {
 		log.Fatal(err.Error())
