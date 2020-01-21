@@ -23,7 +23,7 @@ type page struct {
 
 type Sparkle struct {
 	Description string
-	Version     string `validate:"nonzero"`
+	Version     float32 `validate:"nonzero"`
 }
 
 type Recaptcha struct {
