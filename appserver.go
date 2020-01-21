@@ -16,12 +16,12 @@ import (
 	"time"
 )
 
-type Page struct {
+type page struct {
 	Name    string
 	Content string
 }
 
-type Sparkle struct {
+type sparkle struct {
 	Description string
 	Version     string `validate:"nonzero"`
 }
@@ -33,9 +33,9 @@ type ProjectData struct {
 	Recaptcha   string  `validate:"nonzero"`
 	Host        string  `validate:"nonzero"`
 	DmgPath     string  `validate:"nonzero"`
-	Sparkle     Sparkle `validate:"nonzero"`
+	Sparkle     sparkle `validate:"nonzero"`
 
-	Pages []Page
+	Pages []page
 	Year  int
 }
 
@@ -43,8 +43,8 @@ func filenameWithoutExtension(fn string) string {
 	return strings.TrimSuffix(path.Base(fn), path.Ext(fn))
 }
 
-func renderDirectory(pattern string) []Page {
-	var pages []Page
+func renderDirectory(pattern string) []page {
+	var pages []page
 
 	files, err := filepath.Glob(pattern)
 	if err != nil {
@@ -60,7 +60,7 @@ func renderDirectory(pattern string) []Page {
 		if err := ts.Execute(&tpl, nil); err != nil {
 			log.Fatal(err.Error())
 		}
-		pages = append(pages, Page{
+		pages = append(pages, page{
 			Name:    filenameWithoutExtension(file),
 			Content: tpl.String(),
 		})
