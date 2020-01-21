@@ -143,6 +143,10 @@ func Start(p ProjectData) {
 		_ = fmt.Errorf("no /templates directory")
 		return
 	}
+	if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) {
+		_ = fmt.Errorf("no dmg at path")
+		return
+	}
 
 	m := mux.NewRouter()
 	m.HandleFunc("/", p.webHandler)
