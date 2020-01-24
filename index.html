@@ -43,8 +43,9 @@
             <a href="download" class="download">DOWNLOAD<i class="fab fa-apple"></i></a>
             <p class="nav">
                 {{ range .Pages }}
-                    <a href="#{{.Name}}}">{{.Name}}</a>
+                    <a href="#{{.Name}}">{{.Name}}</a>
                 {{end}}
+                <a href="#terms">Terms</a>
                 <a href="#contact">Contact</a>
             </p>
         </div>
@@ -54,11 +55,23 @@
 <!-- pages -->
 {{range .Pages}}
     <page id='{{.Name}}'>
-        <div align='center'><h2>{{.Name}}</h2></div>
+        <div align='center'><h2>{{ replace .Name "-" " " }}</h2></div>
         {{.Content}}
     </page>
 {{end}}
 
+
+<!-- terms -->
+<page id='terms'>
+    <div align='center'><h2>Ts & Cs</h2></div>
+    By using the {{.Project.Name}} application you are agreeing to these terms:<br/><br/> Use of the Service is at your own
+    risk. The Service is provided on an "AS IS" and "AS AVAILABLE" basis without any representation or endorsement
+    made and without warranty of any kind whether expressed or implied, including but not limited to the implied
+    warranties of satisfactory quality, fitness for a particular purpose, non-infringement, compatibility, security
+    and accuracy.<br/><br/>To the extent permitted by law, the Service, will not be liable for any indirect or
+    consequential loss or damage whatsoever (including without limitation, loss of business, opportunity, data,
+    profits) arising out of or in connection with the use of the Service.
+</page>
 
 <!-- contact -->
 <page id="contact">

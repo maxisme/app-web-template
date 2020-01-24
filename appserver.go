@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"gopkg.in/validator.v2"
 	"html/template"
-	"log"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -36,7 +36,7 @@ type page struct {
 }
 
 type Sparkle struct {
-	Description string
+	Description string  `validate:"nonzero"`
 	Version     float32 `validate:"nonzero"`
 }
 
@@ -61,26 +61,36 @@ type IndexData struct {
 	Year    int
 }
 
+type TemplateData struct {
+	Data interface{}
+}
+
+const rfc2822 = "Mon Jan 02 15:04:05 -0700 2006"
+
 func filenameWithoutExtension(fn string) string {
 	return strings.TrimSuffix(path.Base(fn), path.Ext(fn))
 }
 
-func renderDirectory(pattern string) []page {
+func replace(input, from, to string) string {
+	return strings.Replace(input, from, to, -1)
+}
+
+func renderDirectory(pattern string, data interface{}) []page {
 	var pages []page
 
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		log.Fatal(err.Error())
+		panic(err.Error())
 	}
 
 	for _, file := range files {
 		ts, err := template.ParseFiles(file)
 		if err != nil {
-			log.Fatal(err.Error())
+			panic(err.Error())
 		}
 		var tpl bytes.Buffer
-		if err := ts.Execute(&tpl, nil); err != nil {
-			log.Fatal(err.Error())
+		if err := ts.Execute(&tpl, TemplateData{data}); err != nil {
+			panic(err.Error())
 		}
 		pages = append(pages, page{
 			Name:    filenameWithoutExtension(file),
@@ -92,14 +102,28 @@ func renderDirectory(pattern string) []page {
 
 func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
 	tmplPath := basepath + "/index.html"
-	tmpl := template.Must(template.ParseFiles(tmplPath))
+	tmpl := template.Must(template.New("index.html").Funcs(template.FuncMap{
+		"replace": replace,
+	}).ParseFiles(tmplPath))
+
+	var data interface{}
+	switch r.Method {
+	case "GET":
+		data = r.URL.Query()
+	case "POST":
+		data, _ = ioutil.ReadAll(r.Body)
+	default:
+		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte(http.StatusText(http.StatusNotImplemented)))
+		return
+	}
 
 	if err := tmpl.Execute(w, IndexData{
 		Project: p,
-		Pages:   renderDirectory("templates/*.html"),
+		Pages:   renderDirectory("templates/*.html", data),
 		Year:    time.Now().Year(),
 	}); err != nil {
-		log.Fatal(err.Error())
+		panic(err.Error())
 	}
 }
 
@@ -108,42 +132,51 @@ func (p *ProjectConfig) siteMapHandler(w http.ResponseWriter, r *http.Request) {
 	<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 	<url>
 	  <loc>https://%s/</loc>
-	  <lastmod>2019-12-21T00:32:56+00:00</lastmod>
+	  <lastmod>2020-01-01T00:00:00+00:00</lastmod>
 	  <changefreq>monthly</changefreq>
 	</url>
 	</urlset>
 	`, p.Host)
 
 	if _, err := w.Write([]byte(xml)); err != nil {
-		log.Fatal(err.Error())
+		panic(err.Error())
 	}
 }
 
 func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
+	// get age of dmg
+	info, err := os.Stat(p.DmgPath)
+	if err != nil {
+		panic(err.Error())
+		return
+	}
+	dmgTime := info.ModTime().Format(rfc2822)
+
 	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
 	<rss version="1.1" xmlns:Sparkle="https://%[1]s/xml-namespaces/Sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
 	  <channel>
 		<item>
-			<title>Version %[2]s</title>
+			<title>Version %[2]f</title>
 			<description><![CDATA[
 				%[3]s
 			]]>
 			</description>
-			<Sparkle:version>%[2]s</Sparkle:version>
-			<pubDate>'.date ("r", filemtime($file)).'</pubDate>
-			<enclosure url="https://%[1]s/download" Sparkle:version="%[2]s"/>
+			<Sparkle:version>%[2]f</Sparkle:version>
+			<pubDate>%[4]s</pubDate>
+			<enclosure url="https://%[1]s/download" Sparkle:version="%[2]f"/>
 		</item>
 	  </channel>
 	</rss>
-	`, p.Host, p.Sparkle.Version, p.Sparkle.Description)
+	`, p.Host, p.Sparkle.Version, p.Sparkle.Description, dmgTime)
 
 	if _, err := w.Write([]byte(xml)); err != nil {
-		log.Fatal(err.Error())
+		panic(err.Error())
 	}
 }
 
 func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) {
-	r.Header.Set("Location", p.DmgPath)
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+p.DmgPath+"\"")
+	http.ServeFile(w, r, p.DmgPath)
 }
 
 func Start(p ProjectConfig) error {
