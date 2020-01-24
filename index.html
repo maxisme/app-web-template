@@ -43,7 +43,7 @@
             <a href="download" class="download">DOWNLOAD<i class="fab fa-apple"></i></a>
             <p class="nav">
                 {{ range .Pages }}
-                    <a href="#{{.Name}}">{{.Name}}</a>
+                    <a href="#{{.Name}}">{{ replace .Name "-" " " }}</a>
                 {{end}}
                 <a href="#terms">Terms</a>
                 <a href="#contact">Contact</a>
