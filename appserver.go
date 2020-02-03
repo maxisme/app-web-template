@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/coreos/go-systemd/v22/activation"
+	"github.com/coreos/go-systemd/activation"
 	"github.com/gorilla/mux"
 	"gopkg.in/validator.v2"
 	"html/template"
