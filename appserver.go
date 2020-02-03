@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/TV4/graceful"
+	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/gorilla/mux"
 	"gopkg.in/validator.v2"
 	"html/template"
@@ -179,22 +179,31 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 	http.ServeFile(w, r, p.DmgPath)
 }
 
-func Start(p ProjectConfig) error {
-	// validate requirements to start server
-	if err := validator.Validate(p); err != nil {
+func Serve(p ProjectConfig) error {
+	// fetch systemd listeners
+	listeners, err := activation.Listeners()
+	if err != nil {
 		return err
 	}
+	if len(listeners) != 1 {
+		// https://github.com/coreos/go-systemd/tree/master/examples/activation/httpserver
+		return errors.New("unexpected number of socket listeners. make sure you run using systemd-socket-activate")
+	}
 
-	for _, requiredPath := range requiredPaths {
+	// validate requirements to start server
+	if err := validator.Validate(p); err != nil { // validate config
+		return err
+	}
+	for _, requiredPath := range requiredPaths { // insure paths exist
 		if _, err := os.Stat(requiredPath); os.IsNotExist(err) {
 			return errors.New(requiredPath + " required")
 		}
 	}
-
-	if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) {
+	if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) { // insure valid dmg
 		return errors.New(p.DmgPath + "doesn't exist")
 	}
 
+	// start server
 	m := mux.NewRouter()
 	m.HandleFunc("/", p.webHandler)
 	m.HandleFunc("/sitemap", p.siteMapHandler)
@@ -202,6 +211,5 @@ func Start(p ProjectConfig) error {
 	m.HandleFunc("/download", p.downloadHandler)
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
-	graceful.ListenAndServe(&http.Server{Addr: ":8080", Handler: m})
-	return nil
+	return http.Serve(listeners[0], nil)
 }
