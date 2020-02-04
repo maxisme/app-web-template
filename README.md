@@ -11,7 +11,7 @@ To implement `appserver` create a new project:
 
 3. Add your latest `.dmg` file to the root.
 
-4. Create a `main.go` with this content: 
+4. Create a `main.go` file: 
     ```go
     package main
     
