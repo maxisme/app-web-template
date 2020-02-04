@@ -211,5 +211,5 @@ func Serve(p ProjectConfig) error {
 	m.HandleFunc("/download", p.downloadHandler)
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
-	return http.Serve(listeners[0], nil)
+	return http.Serve(listeners[0], m)
 }
