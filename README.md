@@ -9,7 +9,9 @@ To implement `appserver` create a new project:
     Use [logoToImages.sh](https://github.com/maxisme/App-Deployment-Tools/blob/master/Media/logoToImages.sh)
 2. Create a `templates/` directory which contains the pages you want the website template to contain (can be written in go templates also the `.Data` variable contains any GET http arguments passed)
 
-3. Create a `main.go` with this content: 
+3. Add your latest `.dmg` file to the root.
+
+4. Create a `main.go` with this content: 
     ```go
     package main
     
@@ -41,12 +43,12 @@ To implement `appserver` create a new project:
     
     ```
 
-4. Build binary for project:
+5. Build binary for project:
     ```bash
     $ go build -o /usr/local/bin/appserver main.go
     ```
 
-5. Create an `appserver.service` file (customising `Description` and also `WorkingDirectory` with where the root of this project is) and place in the `/etc/systemd/system` directory:
+6. Create an `appserver.service` file (customising `Description` and also `WorkingDirectory` with where the root of this project is) and place in the `/etc/systemd/system` directory:
    ```bash
    [Unit]
    Description=
@@ -63,7 +65,7 @@ To implement `appserver` create a new project:
    WantedBy=multi-user.target
    ```
    
-6. Create an `appserver.socket` file and place in the `/etc/systemd/system` directory:
+7. Create an `appserver.socket` file and place in the `/etc/systemd/system` directory:
     ```bash
     [Socket]
     ListenStream = 8080
@@ -72,13 +74,13 @@ To implement `appserver` create a new project:
     WantedBy=sockets.target
     ```
 
-7. Start the service by running:
+8. Start the service by running:
     ```bash
     $ systemctl daemon-reload
     $ systemctl start appserver.socket
     ```
     
-8. Now test the service is running by executing:
+9. Now test the service is running by executing:
     ```bash
     $ curl 127.0.0.1:8080
     ```
