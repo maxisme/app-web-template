@@ -86,6 +86,21 @@ To implement `appserver` create a new project:
     ```
     
 
-Every time you update simply rerun step `4` and then `$ systemctl restart appserver.service`
+A deploy script may look like:
+```bash
+# pull latest from project you have created
+git fetch origin
+git checkout master
+git pull
+
+# get latest version from this project
+go get -u github.com/maxisme/appserver
+
+# build binary
+go build -o /usr/local/bin/appserver main.go
+
+# reload binary with 0 downtime
+systemctl restart appserver.service
+```
 
 Use `$ journalctl -u appserver.service` to debug any issues you may have.
