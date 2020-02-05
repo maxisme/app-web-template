@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/coreos/go-systemd/activation"
 	"github.com/gorilla/mux"
+	"github.com/tylerb/graceful"
 	"gopkg.in/validator.v2"
 	"html/template"
 	"io/ioutil"
@@ -211,5 +212,6 @@ func Serve(p ProjectConfig) error {
 	m.HandleFunc("/download", p.downloadHandler)
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
-	return http.Serve(listeners[0], m)
+
+	return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
 }
