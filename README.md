@@ -31,8 +31,8 @@ To implement `appserver` create a new project:
                 Priv: "",
             },
             Sparkle: appserver.Sparkle{
-                Version:1,
-                Description:"",
+                Version: 1,
+                Description: "",
             },
         }
     
@@ -48,7 +48,7 @@ To implement `appserver` create a new project:
     $ go build -o /usr/local/bin/appserver main.go
     ```
 
-6. Create an `appserver.service` file (customising `Description` and also `WorkingDirectory` with where the root of this project is) and place in the `/etc/systemd/system` directory:
+6. Create an `appserver.service` file (customising `Description` and also `WorkingDirectory` with the root path of your project) and place in the `/etc/systemd/system/` directory:
    ```bash
    [Unit]
    Description=
@@ -65,7 +65,7 @@ To implement `appserver` create a new project:
    WantedBy=multi-user.target
    ```
    
-7. Create an `appserver.socket` file and place in the `/etc/systemd/system` directory:
+7. Create an `appserver.socket` file and place in the `/etc/systemd/system/` directory:
     ```bash
     [Socket]
     ListenStream = 8080
