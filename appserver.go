@@ -181,15 +181,6 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func Serve(p ProjectConfig) error {
-	// fetch systemd listeners
-	listeners, err := activation.Listeners()
-	if err != nil {
-		return err
-	}
-	if len(listeners) != 1 {
-		// https://github.com/coreos/go-systemd/tree/master/examples/activation/httpserver
-		return errors.New("unexpected number of socket listeners. make sure you run using systemd-socket-activate")
-	}
 
 	// validate requirements to start server
 	if err := validator.Validate(p); err != nil { // validate config
@@ -213,5 +204,10 @@ func Serve(p ProjectConfig) error {
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
 
-	return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
+	listeners, err := activation.Listeners()
+	if err == nil && len(listeners) == 1 {
+		return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
+	}
+
+	return graceful.ListenAndServe(&http.Server{Handler: m}, 5*time.Second)
 }
