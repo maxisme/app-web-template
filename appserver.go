@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+const rfc2822 = "Mon Jan 02 15:04:05 -0700 2006"
+
 var requiredPaths = [4]string{
 	"images/og_logo.png",
 	"images/icon.ico",
@@ -38,7 +40,7 @@ type page struct {
 
 type Sparkle struct {
 	Description string  `validate:"nonzero"`
-	Version     float32 `validate:"nonzero"`
+	Version     string `validate:"nonzero"`
 }
 
 type Recaptcha struct {
@@ -66,10 +68,8 @@ type TemplateData struct {
 	Data interface{}
 }
 
-const rfc2822 = "Mon Jan 02 15:04:05 -0700 2006"
-
 func filenameWithoutExtension(fn string) string {
-	return strings.TrimSuffix(path.Base(fn), path.Ext(fn))
+	return strings.ToLower(strings.TrimSuffix(path.Base(fn), path.Ext(fn)))
 }
 
 func replace(input, from, to string) string {
@@ -108,6 +108,7 @@ func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
 	}).ParseFiles(tmplPath))
 
 	var data interface{}
+
 	switch r.Method {
 	case "GET":
 		data = r.URL.Query()
@@ -115,7 +116,7 @@ func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
 		data, _ = ioutil.ReadAll(r.Body)
 	default:
 		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte(http.StatusText(http.StatusNotImplemented)))
+		_, _ = w.Write([]byte(http.StatusText(http.StatusNotImplemented)))
 		return
 	}
 
@@ -157,14 +158,14 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	<rss version="1.1" xmlns:Sparkle="https://%[1]s/xml-namespaces/Sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
 	  <channel>
 		<item>
-			<title>Version %[2]f</title>
+			<title>Version %[2]s</title>
 			<description><![CDATA[
 				%[3]s
 			]]>
 			</description>
-			<Sparkle:version>%[2]f</Sparkle:version>
+			<Sparkle:version>%[2]s</Sparkle:version>
 			<pubDate>%[4]s</pubDate>
-			<enclosure url="https://%[1]s/download" Sparkle:version="%[2]f"/>
+			<enclosure url="https://%[1]s/download" Sparkle:version="%[2]s"/>
 		</item>
 	  </channel>
 	</rss>
@@ -180,6 +181,7 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 	http.ServeFile(w, r, p.DmgPath)
 }
 
+// Serve runs the web server based on the config in ProjectConfig
 func Serve(p ProjectConfig) error {
 
 	// validate requirements to start server
@@ -209,5 +211,5 @@ func Serve(p ProjectConfig) error {
 		return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
 	}
 
-	return graceful.ListenAndServe(&http.Server{Handler: m}, 5*time.Second)
+	return graceful.ListenAndServe(&http.Server{Addr: ":9000", Handler: m}, 5*time.Second)
 }
