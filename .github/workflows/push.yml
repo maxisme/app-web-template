@@ -1,0 +1,23 @@
+name: Tag
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '**.go'
+      - 'static/**'
+      - 'index.html'
+
+jobs:
+  tag:
+    name: Tag Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          fetch-depth: '0'
+      - name: Bump version
+        uses: anothrNick/github-tag-action@1.17.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
