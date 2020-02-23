@@ -2,18 +2,22 @@ package appserver
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/coreos/go-systemd/activation"
 	"github.com/gorilla/mux"
 	"github.com/tylerb/graceful"
+	"gopkg.in/gomail.v2"
 	"gopkg.in/validator.v2"
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -43,6 +47,11 @@ type Sparkle struct {
 	Version     string `validate:"nonzero"`
 }
 
+type Email struct {
+	To            string `validate:"nonzero"`
+	gomail.Dialer `validate:"nonzero"`
+}
+
 type Recaptcha struct {
 	Pub  string `validate:"nonzero"`
 	Priv string `validate:"nonzero"`
@@ -56,6 +65,7 @@ type ProjectConfig struct {
 	Description string    `validate:"nonzero"`
 	Recaptcha   Recaptcha `validate:"nonzero"`
 	Sparkle     Sparkle   `validate:"nonzero"`
+	Email       Email     `validate:"nonzero"`
 }
 
 type IndexData struct {
@@ -99,6 +109,70 @@ func renderDirectory(pattern string, data interface{}) []page {
 		})
 	}
 	return pages
+}
+
+type GoogleRecaptchaResponse struct {
+	Success bool `json:"success"`
+}
+
+func (p *ProjectConfig) validateReCAPTCHA(recaptchaResponse string) (bool, error) {
+	// https://developers.google.com/recaptcha/docs/verify
+	req, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {p.Recaptcha.Priv},
+		"response": {recaptchaResponse},
+	})
+	if err != nil { // Handle error from HTTP POST to Google reCAPTCHA verify server
+		return false, err
+	}
+	defer req.Body.Close()
+	body, err := ioutil.ReadAll(req.Body) // Read the response from Google
+	if err != nil {
+		return false, err
+	}
+
+	var googleResponse GoogleRecaptchaResponse
+	err = json.Unmarshal(body, &googleResponse) // Parse the JSON response from Google
+	if err != nil {
+		return false, err
+	}
+	return googleResponse.Success, nil
+}
+
+var rxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Invalid Request", 404)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), 490)
+		return
+	}
+
+	senderEmailAddress := r.FormValue("from")
+	if len(senderEmailAddress) > 254 || !rxEmail.MatchString(senderEmailAddress) {
+		http.Error(w, "invalid email address", 491)
+		return
+	}
+
+	senderName := r.FormValue("name")
+	body := r.FormValue("body")
+
+	if len(body) <= 5 || len(senderName) < 2 {
+		http.Error(w, "invalid data", 492)
+		return
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("To", p.Email.To)
+	m.SetHeader("From", senderEmailAddress)
+	m.SetHeader("Subject", fmt.Sprintf("%s contact form - from %s", p.Name, senderName))
+	m.SetBody("text/html", body)
+
+	if err := p.Email.DialAndSend(m); err != nil {
+		panic(err)
+	}
 }
 
 func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +276,7 @@ func Serve(p ProjectConfig) error {
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
 	m.HandleFunc("/download", p.downloadHandler)
+	m.HandleFunc("/email", p.downloadHandler)
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
 
