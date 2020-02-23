@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const rfc2822 = "Mon Jan 02 15:04:05 -0700 2006"
+const rfc2822 = "Mon, 28 Jan 2013 14:30:00 +0500"
 
 var requiredPaths = [4]string{
 	"images/og_logo.png",
