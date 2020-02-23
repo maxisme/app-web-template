@@ -39,7 +39,7 @@ type page struct {
 }
 
 type Sparkle struct {
-	Description string  `validate:"nonzero"`
+	Description string `validate:"nonzero"`
 	Version     string `validate:"nonzero"`
 }
 
@@ -183,7 +183,6 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 
 // Serve runs the web server based on the config in ProjectConfig
 func Serve(p ProjectConfig) error {
-
 	// validate requirements to start server
 	if err := validator.Validate(p); err != nil { // validate config
 		return err
