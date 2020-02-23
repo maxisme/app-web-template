@@ -17,6 +17,7 @@ To implement `appserver` create a new project:
     
     import (
         "github.com/maxisme/appserver"
+	    "os"
     )
     
     func main() {
@@ -27,11 +28,11 @@ To implement `appserver` create a new project:
             KeyWords: "",
             Description: "",
             Recaptcha: appserver.Recaptcha{
-                Pub: "",
-                Priv: "",
+                Pub: os.Getenv("captch-pub"),
+                Priv: os.Getenv("captch-priv"),
             },
             Sparkle: appserver.Sparkle{
-                Version: 1,
+                Version: "0.1",
                 Description: "",
             },
         }
@@ -48,7 +49,11 @@ To implement `appserver` create a new project:
     $ go build -o /usr/local/bin/appserver main.go
     ```
 
-6. Create an `appserver.service` file (customising `Description` and also `WorkingDirectory` with the root path of your project) and place in the `/etc/systemd/system/` directory:
+6. Create `/etc/systemd/system/appserver.service` file, customising:
+    - `Description` 
+    - `WorkingDirectory` with the root path of your project
+    - `<captcha-pub>` and `<captcha-priv>` with https://www.google.com/recaptcha
+    
    ```bash
    [Unit]
    Description=
@@ -58,6 +63,8 @@ To implement `appserver` create a new project:
    [Service]
    Type=simple
    WorkingDirectory=
+   Environment="captch-pub=<captcha-pub>"
+   Environment="captch-priv=<captcha-priv>"
    ExecStart=/usr/local/bin/appserver
    ExecReload=/bin/kill -SIGINT $MAINPID
    
@@ -65,7 +72,7 @@ To implement `appserver` create a new project:
    WantedBy=multi-user.target
    ```
    
-7. Create an `appserver.socket` file and place in the `/etc/systemd/system/` directory:
+7. Create an `/etc/systemd/system/appserver.socket` file:
     ```bash
     [Socket]
     ListenStream = 8080
