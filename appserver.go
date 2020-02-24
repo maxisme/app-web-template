@@ -2,6 +2,7 @@ package appserver
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,8 +49,11 @@ type Sparkle struct {
 }
 
 type Email struct {
-	To            string `validate:"nonzero"`
-	gomail.Dialer `validate:"nonzero"`
+	To       string `validate:"nonzero"`
+	Host     string `validate:"nonzero"`
+	Port     int    `validate:"nonzero"`
+	Username string `validate:"nonzero"`
+	Password string `validate:"nonzero"`
 }
 
 type Recaptcha struct {
@@ -110,169 +114,47 @@ func renderDirectory(pattern string, data interface{}) []page {
 	}
 	return pages
 }
-type GoogleRecaptchaResponse struct {
-	Success            bool     `json:"success"`
-}
-
-func (p *ProjectConfig) validateReCAPTCHA(recaptchaResponse string) (bool, error) {
-	// https://developers.google.com/recaptcha/docs/verify
-	req, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
-		"secret":   {p.Recaptcha.Priv},
-		"response": {recaptchaResponse},
-	})
-	if err != nil { // Handle error from HTTP POST to Google reCAPTCHA verify server
-		return false, err
-	}
-	defer req.Body.Close()
-	body, err := ioutil.ReadAll(req.Body) // Read the response from Google
-	if err != nil {
-		return false, err
-	}
-
-	var googleResponse GoogleRecaptchaResponse
-	err = json.Unmarshal(body, &googleResponse) // Parse the JSON response from Google
-	if err != nil {
-		return false, err
-	}
-	return googleResponse.Success, nil
-}
-
-func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Invalid Request", 404)
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), 490)
-		return
-	}
-
-	senderEmailAddress :=r.FormValue("from")
-	senderName := r.FormValue("name")
-	body := r.FormValue("body")
-
-	m := gomail.NewMessage()
-	m.SetHeader("To", "max@max.me.uk")
-	m.SetHeader("From", senderEmailAddress)
-	m.SetHeader("Subject", fmt.Sprintf("%s contact form - from %s", p.Name, senderName))
-	m.SetBody("text/html", body)
-
-	d := gomail.NewDialer("smtp.example.com", 587, "user", "123456")
-
-	// Send the email to Bob, Cora and Dan.
-	if err := d.DialAndSend(m); err != nil {
-		panic(err)
-	}
-}
-
-//<?php
-//session_start();
-///******************/
-///* init VARIABLES */
-///******************/
-//$settings = yaml_parse_file("../../config.yaml");
-//$APP_NAME = $settings["title"];
-//$to_email = $settings["email"];
-//$CAPTCHA_SECRET = $settings["recaptcha"]["priv"]; /* GET KEYS: https://www.google.com/recaptcha/admin#list */
-//
-//function diee($mess){
-//$_SESSION["error"] = $mess;
-//$_SESSION["name"] = $_POST['name'];
-//$_SESSION["from"] = $_POST['from'];
-//$_SESSION["body"] = $_POST['body'];
-//die(header("Location: ../#contact"));
-//}
-///******************/
-///* handle RECAPTCHA */
-///******************/
-//$userIP = $_SERVER["REMOTE_ADDR"];
-//$recaptchaResponse = $_GET['g-recaptcha-response'];
-//$request = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$CAPTCHA_SECRET}&response={$recaptchaResponse}&remoteip={$userIP}");
-//if(!strstr($request, "true")) diee("Failed captcha");
-//
-///******************/
-///* handle EMAIL */
-///******************/
-///* REMEMBER TO CHECK VPS ALLOWS 587 OUTGOING */
-//
-///* POST VALIDATION*/
-//if(!filter_var($_POST['from'], FILTER_VALIDATE_EMAIL)) diee("Not a valid email");
-//$from = $_POST['from'];
-//
-//if(!isset($_POST['name'])) diee("What is your name?");
-//if(strlen($_POST['name']) > 200) diee("Your name is too long!");
-//$name = filter_var($_POST['name'], FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_HIGH);
-//
-//if(!isset($_POST['body'])) diee("You haven't told us anything!");
-//if(strlen($_POST['body']) > 10000) diee("Your message is too long! Press back if you have lost your essay!");
-//$body = filter_var($_POST['body'], FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_HIGH);
-//
-//use PHPMailer\PHPMailer\PHPMailer;
-//
-//require 'PHPMailer/Exception.php';
-//require 'PHPMailer/PHPMailer.php';
-//require 'PHPMailer/SMTP.php';
-//
-//$mail = new PHPMailer();
-////$mail->SMTPDebug = 4;
-//$mail->CharSet = 'UTF-8';
-//
-//$mail->IsSMTP();
-//$mail->Timeout    = 2;
-//$mail->Host       = "mail.maxemails.info";
-//$mail->SMTPAuth   = true;
-//$mail->Username   = "form@transferme.it";
-//$mail->Password   = "***REMOVED***";
-//$mail->SMTPSecure = 'TLS';
-//$mail->Port       = 587;
-//
-//$mail->setFrom($from, "$from");
-//$mail->addAddress($to_email, '');
-//$mail->Subject  = "$APP_NAME Contact form - from $name";
-//$mail->Body     = $body;
-//
-//$mail->SMTPOptions = array( 'ssl' => array( 'verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true ) );
-//
-//if(!$mail->send()) {
-//echo 'Message was not sent.';
-//echo 'Mailer error: ' . $mail->ErrorInfo;
-//diee("Please contact <a href='mailto:max@max.me.uk'>max@max.me.uk</a>");
-//} else {
-//$_SESSION["email"] = "Thank you for your message. We will get back to you ASAP.";
-//header("Location: ../#contact");
-//}
-//
-//$mail->SmtpClose();
 
 type GoogleRecaptchaResponse struct {
 	Success bool `json:"success"`
 }
 
-func (p *ProjectConfig) validateReCAPTCHA(recaptchaResponse string) (bool, error) {
+func getIP(r *http.Request) string {
+	forwarded := r.Header.Get("X-FORWARDED-FOR")
+	if forwarded != "" {
+		return forwarded
+	}
+	return r.RemoteAddr
+}
+
+func (p *ProjectConfig) isValidCaptcha(recaptchaResponse string, remoteIP string) (bool, error) {
 	// https://developers.google.com/recaptcha/docs/verify
-	req, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+	c := &http.Client{Timeout: 1 * time.Second}
+	req, err := c.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
 		"secret":   {p.Recaptcha.Priv},
 		"response": {recaptchaResponse},
+		"remoteip": {remoteIP},
 	})
-	if err != nil { // Handle error from HTTP POST to Google reCAPTCHA verify server
+	if err != nil {
 		return false, err
 	}
 	defer req.Body.Close()
-	body, err := ioutil.ReadAll(req.Body) // Read the response from Google
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		return false, err
 	}
 
-	var googleResponse GoogleRecaptchaResponse
-	err = json.Unmarshal(body, &googleResponse) // Parse the JSON response from Google
+	var resp GoogleRecaptchaResponse
+	err = json.Unmarshal(body, &resp)
 	if err != nil {
+		fmt.Printf(string(body))
 		return false, err
 	}
-	return googleResponse.Success, nil
+	return resp.Success, nil
 }
 
 var rxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
 func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Invalid Request", 404)
@@ -284,17 +166,28 @@ func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	valid, err := p.isValidCaptcha(r.FormValue("g-recaptcha-response"), getIP(r))
+	if err != nil {
+		http.Error(w, err.Error(), 491)
+		return
+	}
+
+	if !valid {
+		http.Error(w, "Invalid captcha", 491)
+		return
+	}
+
 	senderEmailAddress := r.FormValue("from")
 	if len(senderEmailAddress) > 254 || !rxEmail.MatchString(senderEmailAddress) {
-		http.Error(w, "invalid email address", 491)
+		http.Error(w, "invalid email address", 492)
 		return
 	}
 
 	senderName := r.FormValue("name")
 	body := r.FormValue("body")
 
-	if len(body) <= 5 || len(senderName) < 2 {
-		http.Error(w, "invalid data", 492)
+	if len(body) == 0 || len(senderName) == 0 {
+		http.Error(w, "invalid form values", 493)
 		return
 	}
 
@@ -304,9 +197,13 @@ func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
 	m.SetHeader("Subject", fmt.Sprintf("%s contact form - from %s", p.Name, senderName))
 	m.SetBody("text/html", body)
 
-	if err := p.Email.DialAndSend(m); err != nil {
+	d := gomail.NewDialer(p.Email.Host, p.Email.Port, p.Email.Username, p.Email.Password)
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	if err := d.DialAndSend(m); err != nil {
 		panic(err)
 	}
+
+	http.Redirect(w, r, "/#contact", 301)
 }
 
 func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +307,7 @@ func Serve(p ProjectConfig) error {
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
 	m.HandleFunc("/download", p.downloadHandler)
-	m.HandleFunc("/email", p.downloadHandler)
+	m.HandleFunc("/email", p.emailHandler)
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
 
