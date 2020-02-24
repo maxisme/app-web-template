@@ -81,7 +81,7 @@
     </p>
 
     <!-- form -->
-    <form method="post" action="backend/send-email.php">
+    <form method="post" action="/email">
         <div class="row">
             <div class="col s12 m12 l6 input-field">
                 <input id="name" name="name" type="text">
@@ -101,6 +101,7 @@
                 <label for="mess">Message</label>
             </div>
         </div>
+        <input type="hidden" id="g-resp" name="g-recaptcha-response">
         <div align="center" id="captcha"></div>
         <!-- hidden submit button -->
         <input id="submit" type="submit" style="visibility: hidden" disabled="disabled">
@@ -111,7 +112,7 @@
     <!-- recaptcha import -->
     <script>
         var correctCaptcha = function (response) {
-            $("form").attr("action", $("form").attr("action") + "?g-recaptcha-response=" + response);
+            $("#g-resp").val(response);
             $("#submit").removeAttr("disabled");
             $("#submit").click();
         };

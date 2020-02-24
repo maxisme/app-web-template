@@ -2,18 +2,23 @@ package appserver
 
 import (
 	"bytes"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/coreos/go-systemd/activation"
 	"github.com/gorilla/mux"
 	"github.com/tylerb/graceful"
+	"gopkg.in/gomail.v2"
 	"gopkg.in/validator.v2"
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -43,6 +48,14 @@ type Sparkle struct {
 	Version     string `validate:"nonzero"`
 }
 
+type Email struct {
+	To       string `validate:"nonzero"`
+	Host     string `validate:"nonzero"`
+	Port     int    `validate:"nonzero"`
+	Username string `validate:"nonzero"`
+	Password string `validate:"nonzero"`
+}
+
 type Recaptcha struct {
 	Pub  string `validate:"nonzero"`
 	Priv string `validate:"nonzero"`
@@ -56,6 +69,7 @@ type ProjectConfig struct {
 	Description string    `validate:"nonzero"`
 	Recaptcha   Recaptcha `validate:"nonzero"`
 	Sparkle     Sparkle   `validate:"nonzero"`
+	Email       Email     `validate:"nonzero"`
 }
 
 type IndexData struct {
@@ -99,6 +113,97 @@ func renderDirectory(pattern string, data interface{}) []page {
 		})
 	}
 	return pages
+}
+
+type GoogleRecaptchaResponse struct {
+	Success bool `json:"success"`
+}
+
+func getIP(r *http.Request) string {
+	forwarded := r.Header.Get("X-FORWARDED-FOR")
+	if forwarded != "" {
+		return forwarded
+	}
+	return r.RemoteAddr
+}
+
+func (p *ProjectConfig) isValidCaptcha(recaptchaResponse string, remoteIP string) (bool, error) {
+	// https://developers.google.com/recaptcha/docs/verify
+	c := &http.Client{Timeout: 1 * time.Second}
+	req, err := c.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {p.Recaptcha.Priv},
+		"response": {recaptchaResponse},
+		"remoteip": {remoteIP},
+	})
+	if err != nil {
+		return false, err
+	}
+	defer req.Body.Close()
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return false, err
+	}
+
+	var resp GoogleRecaptchaResponse
+	err = json.Unmarshal(body, &resp)
+	if err != nil {
+		fmt.Printf(string(body))
+		return false, err
+	}
+	return resp.Success, nil
+}
+
+var rxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
+func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Invalid Request", 404)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), 490)
+		return
+	}
+
+	valid, err := p.isValidCaptcha(r.FormValue("g-recaptcha-response"), getIP(r))
+	if err != nil {
+		http.Error(w, err.Error(), 491)
+		return
+	}
+
+	if !valid {
+		http.Error(w, "Invalid captcha", 491)
+		return
+	}
+
+	senderEmailAddress := r.FormValue("from")
+	if len(senderEmailAddress) > 254 || !rxEmail.MatchString(senderEmailAddress) {
+		http.Error(w, "invalid email address", 492)
+		return
+	}
+
+	senderName := r.FormValue("name")
+	body := r.FormValue("body")
+
+	if len(body) == 0 || len(senderName) == 0 {
+		http.Error(w, "invalid form values", 493)
+		return
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("To", p.Email.To)
+	m.SetHeader("From", senderEmailAddress)
+	m.SetHeader("Subject", fmt.Sprintf("%s contact form - from %s", p.Name, senderName))
+	m.SetBody("text/html", body)
+
+	d := gomail.NewDialer(p.Email.Host, p.Email.Port, p.Email.Username, p.Email.Password)
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	if err := d.DialAndSend(m); err != nil {
+		panic(err)
+	}
+
+	http.Redirect(w, r, "/#contact", 301)
 }
 
 func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +307,7 @@ func Serve(p ProjectConfig) error {
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
 	m.HandleFunc("/download", p.downloadHandler)
+	m.HandleFunc("/email", p.emailHandler)
 	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
 	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
 
