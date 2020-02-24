@@ -52,7 +52,8 @@ To implement `appserver` create a new project:
 6. Create `/etc/systemd/system/appserver.service` file, customising:
     - `Description` 
     - `WorkingDirectory` with the root path of your project
-    - `<captcha-pub>` and `<captcha-priv>` with https://www.google.com/recaptcha
+    - Also add any environment variables under [Service]:
+        - `Environment="foo=bar"`
     
    ```bash
    [Unit]
@@ -63,8 +64,6 @@ To implement `appserver` create a new project:
    [Service]
    Type=simple
    WorkingDirectory=
-   Environment="captch-pub=<captcha-pub>"
-   Environment="captch-priv=<captcha-priv>"
    ExecStart=/usr/local/bin/appserver
    ExecReload=/bin/kill -SIGINT $MAINPID
    
