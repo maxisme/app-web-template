@@ -6,11 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/coreos/go-systemd/activation"
-	"github.com/gorilla/mux"
-	"github.com/tylerb/graceful"
-	"gopkg.in/gomail.v2"
-	"gopkg.in/validator.v2"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -22,6 +17,12 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/coreos/go-systemd/activation"
+	"github.com/gorilla/mux"
+	"github.com/tylerb/graceful"
+	"gopkg.in/gomail.v2"
+	"gopkg.in/validator.v2"
 )
 
 const rfc2822 = "Mon, 28 Jan 2013 14:30:00 +0500"
@@ -316,5 +317,6 @@ func Serve(p ProjectConfig) error {
 		return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
 	}
 
+	fmt.Println("Server started on 9000...")
 	return graceful.ListenAndServe(&http.Server{Addr: ":9000", Handler: m}, 5*time.Second)
 }
