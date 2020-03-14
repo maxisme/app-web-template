@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	. "net"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,7 +20,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-systemd/activation"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 	"github.com/tylerb/graceful"
 	"gopkg.in/gomail.v2"
 	"gopkg.in/validator.v2"
@@ -303,20 +304,26 @@ func Serve(p ProjectConfig) error {
 	}
 
 	// start server
-	m := mux.NewRouter()
+	m := chi.NewRouter()
 	m.HandleFunc("/", p.webHandler)
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
 	m.HandleFunc("/download", p.downloadHandler)
 	m.HandleFunc("/email", p.emailHandler)
-	m.PathPrefix("/images/").Handler(http.FileServer(http.Dir(".")))
-	m.PathPrefix("/").Handler(http.FileServer(http.Dir(basepath + "/static/")))
+	m.Route("/images", func(r chi.Router) {
+		r.Handle("/*", http.FileServer(http.Dir(".")))
+	})
+	m.Handle("/*", http.FileServer(http.Dir(basepath + "/static/")))
 
 	listeners, err := activation.Listeners()
 	if err == nil && len(listeners) == 1 {
 		return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
 	}
 
-	fmt.Println("Server started on 9000...")
-	return graceful.ListenAndServe(&http.Server{Addr: ":9000", Handler: m}, 5*time.Second)
+	listener, err := Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("listening on http://"+listener.Addr().String())
+	return graceful.Serve(&http.Server{Handler: m}, listener, 5*time.Second)
 }

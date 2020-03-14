@@ -52,8 +52,7 @@ To implement `appserver` create a new project:
 6. Create `/etc/systemd/system/appserver.service` file, customising:
     - `Description` 
     - `WorkingDirectory` with the root path of your project
-    - Also add any environment variables under [Service]:
-        - `Environment="foo=bar"`
+    - Also add any environment variables to your projects `.env`
     
    ```bash
    [Unit]
