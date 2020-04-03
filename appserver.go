@@ -262,7 +262,7 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	dmgTime := info.ModTime().Format(rfc2822)
 
 	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
-	<rss version="1.1" xmlns:Sparkle="https://%[1]s/xml-namespaces/Sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
+	<rss version="1.1" xmlns:sparkle="https://%[1]s/xml-namespacessSparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
 	  <channel>
 		<item>
 			<title>Version %[2]s</title>
@@ -270,9 +270,9 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 				%[3]s
 			]]>
 			</description>
-			<Sparkle:version>%[2]s</Sparkle:version>
+			<sparkle:version>%[2]s</sparkle:version>
 			<pubDate>%[4]s</pubDate>
-			<enclosure url="https://%[1]s/download" Sparkle:version="%[2]s"/>
+			<enclosure url="https://%[1]s/download" sparkle:version="%[2]s"/>
 		</item>
 	  </channel>
 	</rss>

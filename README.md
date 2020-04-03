@@ -82,8 +82,9 @@ To implement `appserver` create a new project:
 8. Start the service by running:
     ```bash
     $ systemctl daemon-reload
+    $ systemctl enable appserver.socket
     $ systemctl start appserver.socket
-    $ systemctl enable appserver.service
+    $ systemctl status appserver.socket
     ```
     
 9. Now test the service is running by executing:
