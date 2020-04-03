@@ -262,7 +262,7 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	dmgTime := info.ModTime().Format(rfc2822)
 
 	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
-	<rss version="1.1">
+	<rss version="1.1" xmlns:sparkle="http://%[1]s/xml-namespaces/sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
 	  <channel>
 		<item>
 			<title>Version %[2]s</title>
