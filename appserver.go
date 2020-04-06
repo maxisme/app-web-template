@@ -21,6 +21,7 @@ import (
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/tylerb/graceful"
 	"gopkg.in/gomail.v2"
 	"gopkg.in/validator.v2"
@@ -84,6 +85,10 @@ type TemplateData struct {
 	Data interface{}
 }
 
+const TIMEOUT = 5
+
+var rxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
 func filenameWithoutExtension(fn string) string {
 	return strings.ToLower(strings.TrimSuffix(path.Base(fn), path.Ext(fn)))
 }
@@ -97,17 +102,17 @@ func renderDirectory(pattern string, data interface{}) []page {
 
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 
 	for _, file := range files {
 		ts, err := template.ParseFiles(file)
 		if err != nil {
-			panic(err.Error())
+			panic(err)
 		}
 		var tpl bytes.Buffer
 		if err := ts.Execute(&tpl, TemplateData{data}); err != nil {
-			panic(err.Error())
+			panic(err)
 		}
 		pages = append(pages, page{
 			Name:    filenameWithoutExtension(file),
@@ -140,6 +145,7 @@ func (p *ProjectConfig) isValidCaptcha(recaptchaResponse string, remoteIP string
 	if err != nil {
 		return false, err
 	}
+
 	defer req.Body.Close()
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -155,11 +161,9 @@ func (p *ProjectConfig) isValidCaptcha(recaptchaResponse string, remoteIP string
 	return resp.Success, nil
 }
 
-var rxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-
 func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Error(w, "Invalid Request", 404)
+		http.Error(w, "invalid Request", 404)
 		return
 	}
 
@@ -175,7 +179,7 @@ func (p *ProjectConfig) emailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !valid {
-		http.Error(w, "Invalid captcha", 491)
+		http.Error(w, "invalid captcha", 491)
 		return
 	}
 
@@ -232,7 +236,7 @@ func (p *ProjectConfig) webHandler(w http.ResponseWriter, r *http.Request) {
 		Pages:   renderDirectory("templates/*.html", data),
 		Year:    time.Now().Year(),
 	}); err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 }
 
@@ -253,10 +257,10 @@ func (p *ProjectConfig) siteMapHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
-	// get age of dmg
+	// get modification time of dmg
 	info, err := os.Stat(p.DmgPath)
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 		return
 	}
 	dmgTime := info.ModTime().Format(rfc2822)
@@ -279,7 +283,7 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	`, p.Host, p.Sparkle.Version, p.Sparkle.Description, dmgTime)
 
 	if _, err := w.Write([]byte(xml)); err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 }
 
@@ -305,6 +309,8 @@ func Serve(p ProjectConfig) error {
 
 	// start server
 	m := chi.NewRouter()
+	m.Use(middleware.RequestID)
+	m.Use(middleware.Recoverer)
 	m.HandleFunc("/", p.webHandler)
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
@@ -313,17 +319,17 @@ func Serve(p ProjectConfig) error {
 	m.Route("/images", func(r chi.Router) {
 		r.Handle("/*", http.FileServer(http.Dir(".")))
 	})
-	m.Handle("/*", http.FileServer(http.Dir(basepath + "/static/")))
+	m.Handle("/*", http.FileServer(http.Dir(basepath+"/static/")))
 
 	listeners, err := activation.Listeners()
 	if err == nil && len(listeners) == 1 {
-		return graceful.Serve(&http.Server{Handler: m}, listeners[0], 5*time.Second)
+		return graceful.Serve(&http.Server{Handler: m}, listeners[0], TIMEOUT*time.Second)
 	}
 
 	listener, err := Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("listening on http://"+listener.Addr().String())
-	return graceful.Serve(&http.Server{Handler: m}, listener, 5*time.Second)
+	fmt.Println("listening on http://" + listener.Addr().String())
+	return graceful.Serve(&http.Server{Handler: m}, listener, TIMEOUT*time.Second)
 }
