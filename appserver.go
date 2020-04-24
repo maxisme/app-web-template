@@ -328,7 +328,7 @@ func Serve(p ProjectConfig) error {
 		return graceful.Serve(&http.Server{Handler: m}, listeners[0], TIMEOUT*time.Second)
 	}
 
-	listener, err := Listen("tcp", "127.0.0.1:"+strconv.Itoa(p.WebPort))
+	listener, err := Listen("tcp", ":"+strconv.Itoa(p.WebPort))
 	if err != nil {
 		panic(err)
 	}
