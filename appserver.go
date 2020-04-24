@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,6 +74,7 @@ type ProjectConfig struct {
 	Recaptcha   Recaptcha `validate:"nonzero"`
 	Sparkle     Sparkle   `validate:"nonzero"`
 	Email       Email     `validate:"nonzero"`
+	WebPort     int
 }
 
 type IndexData struct {
@@ -326,7 +328,7 @@ func Serve(p ProjectConfig) error {
 		return graceful.Serve(&http.Server{Handler: m}, listeners[0], TIMEOUT*time.Second)
 	}
 
-	listener, err := Listen("tcp", "127.0.0.1:0")
+	listener, err := Listen("tcp", "127.0.0.1:"+strconv.Itoa(p.WebPort))
 	if err != nil {
 		panic(err)
 	}
