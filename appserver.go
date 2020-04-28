@@ -313,6 +313,7 @@ func Serve(p ProjectConfig) error {
 	m := chi.NewRouter()
 	m.Use(middleware.RequestID)
 	m.Use(middleware.Recoverer)
+	m.Use(middleware.Logger)
 	m.HandleFunc("/", p.webHandler)
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
