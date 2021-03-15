@@ -48,8 +48,8 @@ type page struct {
 }
 
 type Sparkle struct {
-	Description string `validate:"nonzero"`
-	Version     string `validate:"nonzero"`
+	Description string
+	Version     string
 }
 
 type Email struct {
