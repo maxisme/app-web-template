@@ -321,7 +321,7 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 		http.ServeFile(w, r, p.DmgPath)
 		return
 	} else if len(p.GithubDmgRepo) > 0 {
-		githubLatest := GitHubLatest{}
+		githubLatest := &GitHubLatest{}
 		err := getJson(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", p.GithubDmgRepo), githubLatest)
 		if err != nil {
 			panic(err)
