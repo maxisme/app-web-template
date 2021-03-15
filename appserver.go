@@ -60,21 +60,36 @@ type Email struct {
 	Password string `validate:"nonzero"`
 }
 
+type GitHubLatest struct {
+	TagName     string    `json:"tag_name"`
+	CreatedAt   time.Time `json:"created_at"`
+	PublishedAt time.Time `json:"published_at"`
+	Assets      []struct {
+		Name               string    `json:"name"`
+		Size               int       `json:"size"`
+		DownloadCount      int       `json:"download_count"`
+		CreatedAt          time.Time `json:"created_at"`
+		UpdatedAt          time.Time `json:"updated_at"`
+		BrowserDownloadURL string    `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
 type Recaptcha struct {
 	Pub  string `validate:"nonzero"`
 	Priv string `validate:"nonzero"`
 }
 
 type ProjectConfig struct {
-	Name        string    `validate:"nonzero"`
-	Host        string    `validate:"nonzero"`
-	DmgPath     string    `validate:"nonzero"`
-	KeyWords    string    `validate:"nonzero"`
-	Description string    `validate:"nonzero"`
-	Recaptcha   Recaptcha `validate:"nonzero"`
-	Sparkle     Sparkle   `validate:"nonzero"`
-	Email       Email     `validate:"nonzero"`
-	WebPort     int
+	Name          string `validate:"nonzero"`
+	Host          string `validate:"nonzero"`
+	DmgPath       string
+	GithubDmgRepo string    // e.g maxisme/notifi
+	KeyWords      string    `validate:"nonzero"`
+	Description   string    `validate:"nonzero"`
+	Recaptcha     Recaptcha `validate:"nonzero"`
+	Sparkle       Sparkle   `validate:"nonzero"`
+	Email         Email     `validate:"nonzero"`
+	WebPort       int
 }
 
 type IndexData struct {
@@ -263,7 +278,6 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := os.Stat(p.DmgPath)
 	if err != nil {
 		panic(err)
-		return
 	}
 	dmgTime := info.ModTime().Format(rfc2822)
 
@@ -289,9 +303,37 @@ func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var myClient = &http.Client{Timeout: 1 * time.Second}
+
+func getJson(url string, target interface{}) error {
+	r, err := myClient.Get(url)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	return json.NewDecoder(r.Body).Decode(target)
+}
+
 func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+p.DmgPath+"\"")
-	http.ServeFile(w, r, p.DmgPath)
+	if len(p.DmgPath) > 0 {
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+p.DmgPath+"\"")
+		http.ServeFile(w, r, p.DmgPath)
+		return
+	} else if len(p.GithubDmgRepo) > 0 {
+		githubLatest := GitHubLatest{}
+		err := getJson(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", p.GithubDmgRepo), githubLatest)
+		if err != nil {
+			panic(err)
+		}
+		if len(githubLatest.Assets) > 0 {
+			http.Redirect(w, r, githubLatest.Assets[0].BrowserDownloadURL, http.StatusTemporaryRedirect)
+			return
+		}
+	}
+
+	w.WriteHeader(500)
+	w.Write([]byte("No file to be downloaded"))
 }
 
 // Serve runs the web server based on the config in ProjectConfig
