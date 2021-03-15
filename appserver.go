@@ -331,7 +331,6 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-
 	w.WriteHeader(500)
 	w.Write([]byte("No file to be downloaded"))
 }
