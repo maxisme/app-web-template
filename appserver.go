@@ -60,7 +60,7 @@ type Email struct {
 	Password string `validate:"nonzero"`
 }
 
-type GitHubLatest struct {
+type GitHubResponse struct {
 	TagName     string    `json:"tag_name"`
 	CreatedAt   time.Time `json:"created_at"`
 	PublishedAt time.Time `json:"published_at"`
@@ -72,6 +72,7 @@ type GitHubLatest struct {
 		UpdatedAt          time.Time `json:"updated_at"`
 		BrowserDownloadURL string    `json:"browser_download_url"`
 	} `json:"assets"`
+	Body string `json:"body"`
 }
 
 type Recaptcha struct {
@@ -274,32 +275,42 @@ func (p *ProjectConfig) siteMapHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *ProjectConfig) versionHandler(w http.ResponseWriter, r *http.Request) {
-	// get modification time of dmg
-	info, err := os.Stat(p.DmgPath)
-	if err != nil {
-		panic(err)
-	}
-	dmgTime := info.ModTime().Format(rfc2822)
+	if len(p.DmgPath) > 0 {
+		info, err := os.Stat(p.DmgPath)
+		if err != nil {
+			panic(err)
+		}
+		createDttm := info.ModTime().Format(rfc2822)
 
-	xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
-	<rss version="1.1" xmlns:sparkle="http://%[1]s/xml-namespaces/sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
-	  <channel>
-		<item>
-			<title>Version %[2]s</title>
-			<description><![CDATA[
-				%[3]s
-			]]>
-			</description>
-			<sparkle:version>%[2]s</sparkle:version>
-			<pubDate>%[4]s</pubDate>
-			<enclosure url="https://%[1]s/download" sparkle:version="%[2]s"/>
-		</item>
-	  </channel>
-	</rss>
-	`, p.Host, p.Sparkle.Version, p.Sparkle.Description, dmgTime)
+		w.Header().Set("Content-Type", "application/xml")
+		xml := fmt.Sprintf(`<?xml version="1.1" encoding="utf-8"?>
+		<rss version="1.1" xmlns:sparkle="http://%[1]s/xml-namespaces/sparkle" xmlns:dc="https://%[1]s/dc/elements/1.1/">
+		  <channel>
+			<item>
+				<title>Version %[2]s</title>
+				<description><![CDATA[
+					%[3]s
+				]]>
+				</description>
+				<sparkle:version>%[2]s</sparkle:version>
+				<pubDate>%[4]s</pubDate>
+				<enclosure url="https://%[1]s/download" sparkle:version="%[2]s"/>
+			</item>
+		  </channel>
+		</rss>
+		`, p.Host, p.Sparkle.Version, p.Sparkle.Description, createDttm)
 
-	if _, err := w.Write([]byte(xml)); err != nil {
-		panic(err)
+		if _, err := w.Write([]byte(xml)); err != nil {
+			panic(err)
+		}
+	} else {
+		ghResp, err := p.getLatestGH()
+		if err != nil {
+			panic(err)
+		}
+		if _, err := w.Write([]byte(ghResp.TagName)); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -315,19 +326,24 @@ func getJson(url string, target interface{}) error {
 	return json.NewDecoder(r.Body).Decode(target)
 }
 
+func (p *ProjectConfig) getLatestGH() (GitHubResponse, error) {
+	githubResponse := &GitHubResponse{}
+	err := getJson(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", p.GithubDmgRepo), githubResponse)
+	return *githubResponse, err
+}
+
 func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) {
 	if len(p.DmgPath) > 0 {
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+p.DmgPath+"\"")
 		http.ServeFile(w, r, p.DmgPath)
 		return
 	} else if len(p.GithubDmgRepo) > 0 {
-		githubLatest := &GitHubLatest{}
-		err := getJson(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", p.GithubDmgRepo), githubLatest)
+		ghResp, err := p.getLatestGH()
 		if err != nil {
 			panic(err)
 		}
-		if len(githubLatest.Assets) > 0 {
-			http.Redirect(w, r, githubLatest.Assets[0].BrowserDownloadURL, http.StatusTemporaryRedirect)
+		if len(ghResp.Assets) > 0 {
+			http.Redirect(w, r, ghResp.Assets[0].BrowserDownloadURL, http.StatusTemporaryRedirect)
 			return
 		}
 	}
