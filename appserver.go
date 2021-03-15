@@ -347,8 +347,12 @@ func Serve(p ProjectConfig) error {
 			return errors.New(requiredPath + " required")
 		}
 	}
-	if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) { // insure valid dmg
-		return errors.New(p.DmgPath + "doesn't exist")
+	if len(p.DmgPath) > 0 {
+		if _, err := os.Stat(p.DmgPath); os.IsNotExist(err) { // insure valid dmg
+			return errors.New(p.DmgPath + "doesn't exist")
+		}
+	} else if len(p.GithubDmgRepo) == 0 {
+		return errors.New("you must set either GithubDmgRepo or DmgPath")
 	}
 
 	// start server
