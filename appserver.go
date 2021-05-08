@@ -372,15 +372,16 @@ func Serve(p ProjectConfig) error {
 
 	// start server
 	m := chi.NewRouter()
-	m.Use(middleware.RequestID)
 	m.Use(middleware.Recoverer)
-	m.Use(middleware.Logger)
 	m.HandleFunc("/", p.webHandler)
 	m.HandleFunc("/sitemap", p.siteMapHandler)
 	m.HandleFunc("/version", p.versionHandler)
 	m.HandleFunc("/download", p.downloadHandler)
 	m.HandleFunc("/email", p.emailHandler)
 	m.Route("/images", func(r chi.Router) {
+		r.Handle("/*", http.FileServer(http.Dir(".")))
+	})
+	m.Route("/pages/", func(r chi.Router) {
 		r.Handle("/*", http.FileServer(http.Dir(".")))
 	})
 	m.Handle("/*", http.FileServer(http.Dir(basepath+"/static/")))
