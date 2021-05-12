@@ -7,6 +7,11 @@ $(document).on('click', 'a[href^="#"]', function (event) {
 });
 
 $(document).ready(function () {
+	/* only show download for macos */
+	if(navigator.platform.indexOf('Mac') > -1){
+		$("#download").show();
+	}
+
 	/* convert svgs */
 	jQuery('img').filter(function() {
 		return this.src.match(/.*\.svg$/);

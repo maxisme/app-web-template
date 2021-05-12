@@ -40,7 +40,10 @@
             </p>
             <h1>{{.Project.Name}}</h1>
             <div class="info">{{.Project.Description}}</div>
-            <a href="download" class="download">DOWNLOAD<i class="fab fa-apple"></i></a>
+            <a href="download" id="download" class="download" style="display: none">
+                DOWNLOAD
+                <i class="fab fa-apple"></i>
+            </a>
             <p class="nav">
                 {{ range .Pages }}
                     <a href="#{{.Name}}">{{ replace .Name "-" " " }}</a>
