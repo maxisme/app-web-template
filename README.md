@@ -1,3 +1,5 @@
+Add `--style compressed` to sass command.
+
 To implement `appserver` create a new project:
 
 1. Create an `images/` directory which contains:
