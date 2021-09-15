@@ -5,3 +5,4 @@ public_html/images/*
 !*.keep
 .env
 /static/css/.sass-cache/
+/static/css/style.min.css.map
