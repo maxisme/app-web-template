@@ -343,8 +343,16 @@ func (p *ProjectConfig) downloadHandler(w http.ResponseWriter, r *http.Request) 
 			panic(err)
 		}
 		if len(ghResp.Assets) > 0 {
-			http.Redirect(w, r, ghResp.Assets[0].BrowserDownloadURL, http.StatusTemporaryRedirect)
-			return
+			downloadURL := ""
+			for _, asset := range ghResp.Assets {
+				if strings.Contains(asset.BrowserDownloadURL, ".dmg") {
+					downloadURL = asset.BrowserDownloadURL
+				}
+			}
+			if len(downloadURL) > 0 {
+				http.Redirect(w, r, downloadURL, http.StatusTemporaryRedirect)
+				return
+			}
 		}
 	}
 	w.WriteHeader(500)
